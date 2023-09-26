@@ -6,13 +6,20 @@ pub struct Machine {
 
 const PUSH: i32 = 0x01;
 const ADD: i32 = 0x02;
-const INC: i32 = 0x03;
-const DEC: i32 = 0x04;
+const SUB: i32 = 0x03;
+const MUL: i32 = 0x04;
+const DIV: i32 = 0x05;
+const INC: i32 = 0x06;
+const DEC: i32 = 0x07;
+const JMP: i32 = 0x20;
+const CMP: i32 = 0x30;
+const JL: i32 = 0x31;
+const DBG: i32 = 0x70;
 const HLT: i32 = 0x80;
 
 impl Machine {
   pub fn new(prog: Vec<i32>) -> Self {
-    let stack = Vec::with_capacity(10);
+    let stack = Vec::with_capacity(100);
     let ip = 0;
 
     Machine { stack, prog, ip }
@@ -37,17 +44,48 @@ impl Machine {
         self.stack.push(val)
       }
       ADD => {
-        let l = self.stack.pop()?;
-        let r = self.stack.pop()?;
-        self.stack.push(l + r);
+        let res = self.arith(core::ops::Add::add)?;
+        self.stack.push(res)
+      }
+      SUB => {
+        let res = self.arith(core::ops::Sub::sub)?;
+        self.stack.push(res)
+      }
+      MUL => {
+        let res = self.arith(core::ops::Mul::mul)?;
+        self.stack.push(res)
+      }
+      DIV => {
+        let res = self.arith(core::ops::Div::div)?;
+        self.stack.push(res)
       }
       INC => {
-        let lst = self.stack.last_mut()?;
-        *lst += 1;
+        let last = self.stack.last_mut()?;
+        *last += 1;
       }
       DEC => {
-        let lst = self.stack.last_mut()?;
-        *lst -= 1;
+        let last = self.stack.last_mut()?;
+        *last -= 1;
+      }
+      JMP => {
+        let ip = self.stack.pop()?;
+        self.ip = ip;
+      }
+      CMP => {
+        let a = self.stack.pop()?;
+        let b = self.stack.pop()?;
+        self.stack.push(a - b);
+      }
+      JL => {
+        let ip = *self.next()?;
+        let cmp = self.stack.pop()?;
+        if cmp < 0 {
+          self.ip = ip;
+        }
+      }
+      DBG => {
+        let last = self.stack.last()?;
+        println!("-> {last}");
       }
       HLT => {
         let val = self.stack.pop()?;
@@ -58,21 +96,33 @@ impl Machine {
 
     hlt
   }
+
+  fn arith(&mut self, arith: fn(i32, i32) -> i32) -> Option<i32> {
+    let a = self.stack.pop()?;
+    let b = self.stack.pop()?;
+    Some(arith(a, b))
+  }
+
+  pub fn go(&mut self) -> Option<i32> {
+    loop {
+      match self.step() {
+        None => continue,
+        Some(val) => {
+          return Some(val);
+        }
+      }
+    }
+  }
 }
 
 fn main() {
   println!("Hello, world!");
 
-  let prog = vec![PUSH, 1, INC, PUSH, 2, DEC, ADD, HLT];
+  let prog = vec![PUSH, 4, PUSH, 4, CMP, DBG, JL, 0, PUSH, 0, HLT];
 
   let mut mach = Machine::new(prog);
 
-  mach.step();
-  mach.step();
-  mach.step();
-  mach.step();
-  mach.step();
-  let res = mach.step();
+  let res = mach.go();
 
   println!("{res:?}");
 }
