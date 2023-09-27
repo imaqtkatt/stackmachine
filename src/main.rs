@@ -14,6 +14,8 @@ const DEC: i32 = 0x07;
 const JMP: i32 = 0x20;
 const CMP: i32 = 0x30;
 const JL: i32 = 0x31;
+const CALL: i32 = 0x40;
+const RET: i32 = 0x41;
 const DBG: i32 = 0x70;
 const HLT: i32 = 0x80;
 
@@ -38,7 +40,7 @@ impl Machine {
 
     let mut hlt = None;
 
-    match *ins {
+    match dbg!(*ins) {
       PUSH => {
         let val = *self.next()?;
         self.stack.push(val)
@@ -83,6 +85,20 @@ impl Machine {
           self.ip = ip;
         }
       }
+      CALL => {
+        let ret_ip = self.ip;
+        let jmp_location = *self.next()?;
+        let swap_val = self.stack.pop()?;
+
+        self.stack.push(ret_ip);
+        self.stack.push(swap_val);
+        self.ip = jmp_location;
+      }
+      RET => {
+        let current_val = self.stack.pop()?;
+        self.ip = self.stack.pop()? + 1; // is this right?
+        self.stack.push(current_val);
+      }
       DBG => {
         let last = self.stack.last()?;
         println!("-> {last}");
@@ -97,12 +113,14 @@ impl Machine {
     hlt
   }
 
+  /// An arithmetic operation.
   fn arith(&mut self, arith: fn(i32, i32) -> i32) -> Option<i32> {
     let a = self.stack.pop()?;
     let b = self.stack.pop()?;
     Some(arith(a, b))
   }
 
+  /// Executes the current program.
   pub fn go(&mut self) -> Option<i32> {
     loop {
       match self.step() {
@@ -118,7 +136,8 @@ impl Machine {
 fn main() {
   println!("Hello, world!");
 
-  let prog = vec![PUSH, 4, PUSH, 4, CMP, DBG, JL, 0, PUSH, 0, HLT];
+  // let prog = vec![PUSH, 4, PUSH, 4, CMP, DBG, JL, 0, PUSH, 0, HLT];
+  let prog = vec![PUSH, 0, CALL, 7, INC, DBG, RET, PUSH, 41, CALL, 4, HLT];
 
   let mut mach = Machine::new(prog);
 
