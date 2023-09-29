@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct Machine {
   pub stack: Vec<i32>,
   pub prog: Vec<i32>,
@@ -36,7 +37,7 @@ impl Machine {
   }
 
   pub fn step(&mut self) -> Option<i32> {
-    let ins = self.next()?;
+    let ins = self.next().expect("is not out of range");
 
     let mut hlt = None;
 
@@ -75,7 +76,7 @@ impl Machine {
       }
       CMP => {
         let a = self.stack.pop()?;
-        let b = self.stack.pop()?;
+        let b = self.stack.last()?;
         self.stack.push(a - b);
       }
       JL => {
@@ -87,7 +88,7 @@ impl Machine {
       }
       CALL => {
         let ret_ip = self.ip;
-        let jmp_location = *self.next()?;
+        let jmp_location = self.stack.pop()?;
         let swap_val = self.stack.pop()?;
 
         self.stack.push(ret_ip);
@@ -96,7 +97,7 @@ impl Machine {
       }
       RET => {
         let current_val = self.stack.pop()?;
-        self.ip = self.stack.pop()? + 1; // is this right?
+        self.ip = self.stack.pop()?; // is this right?
         self.stack.push(current_val);
       }
       DBG => {
@@ -136,8 +137,10 @@ impl Machine {
 fn main() {
   println!("Hello, world!");
 
-  // let prog = vec![PUSH, 4, PUSH, 4, CMP, DBG, JL, 0, PUSH, 0, HLT];
-  let prog = vec![PUSH, 0, CALL, 7, INC, DBG, RET, PUSH, 41, CALL, 4, HLT];
+  let prog = vec![
+    PUSH, 12, JMP, DEC, DBG, PUSH, 0, CMP, DBG, JL, 3, RET, PUSH, 41, PUSH, 3,
+    CALL, HLT,
+  ];
 
   let mut mach = Machine::new(prog);
 
